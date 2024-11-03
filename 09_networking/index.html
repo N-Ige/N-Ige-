@@ -25,10 +25,187 @@
 
 <h3>Week 9: Radio, WiFi, Bluetooth (IoT)</h3>
 
+For this group project we decided to use two XiaoESP32C3's to turn a LED on using a a buton. The goal was to press a button connected to one XiaoESP32C3 to turn on an LED on another XiaoESP32C3 using a Local Area Network (LAN). 
+
+
+<br></br>
+
+The project was pretty straight forward:
+<ul>
+  <li>
+ Connect both boards to LAN server 
+  </li>
+  <li>
+   Connect butto to transmitting board and connect LED to recieving board
+  </li>
+  <li>
+Program transmitting board as client and the other board to turn the LED on whenever a client connected to the board and pushed the button. The revieving board had no security other than SSID and Password for LAN. This means that any client that connected to the recieving board could turn the LED on and off
+   </li>
+    </ul>
+ 
+
+<br></br>
+
+The code snipetts are below:
+</ul>
+<li> 
+Transmitting board:
+</li>
+  </ul>
+<pre>
+
+#include <WiFi.h>
+#include <WiFiMulti.h>
+
+WiFiMulti WiFiMulti;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(5, INPUT_PULLUP);  // set the LED pin mode
+
+  delay(10);
+
+  // We start by connecting to a WiFi network
+  WiFiMulti.addAP("MAKERSPACE", "12345678");
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Waiting for WiFi... ");
+
+  while (WiFiMulti.run() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  delay(500);
+}
+
+void loop() {
+
+  if (digitalRead(5) == LOW) {
+    //    const uint16_t port = 80;
+    //    const char * host = "192.168.1.1"; // ip or dns
+    const uint16_t port = 80;
+    const char *host = "192.168.0.208";  // ip or dns
+
+    Serial.print("Connecting to ");
+    Serial.println(host);
+
+    // Use NetworkClient class to create TCP connections
+    NetworkClient client;
+
+    if (!client.connect(host, port)) {
+      Serial.println("Connection failed.");
+      Serial.println("Waiting 5 seconds before retrying...");
+      delay(5000);
+      return;
+    }
+
+    // This will send a request to the server
+    //uncomment this line to send an arbitrary string to the server
+    //client.print("Send this data to the server");
+    //uncomment this line to send a basic document request to the server
+    client.print("GET /index.html HTTP/1.1\n\n");
+
+    int maxloops = 0;
+
+    //wait for the server's reply to become available
+    while (!client.available() && maxloops < 1000) {
+      maxloops++;
+      delay(1);  //delay 1 msec
+    }
+    if (client.available() > 0) {
+      //read back one line from the server
+      String line = client.readStringUntil('\r');
+      Serial.println(line);
+    } else {
+      Serial.println("client.available() timed out ");
+    }
+
+    Serial.println("Closing connection.");
+    client.stop();
+
+    Serial.println("Waiting 5 seconds before restarting...");
+    delay(5000);
+  }
+  delay(100);
+}
+
+</pre> 
+
+</ul>
+<li> 
+Recieving board:
+</li>
+  </ul>
+<pre>
+#include <WiFi.h>
+
+const char *ssid = "MAKERSPACE";
+const char *password = "12345678";
+const char *receiverIP = "192.168.x.x"; // Replace with RX Arduino's IP
+const int receiverPort = 80;
+
+const int buttonPin = 4;        // Button connected to pin 4
+bool lastButtonState = HIGH;    // Store previous button state
+bool ledState = LOW;            // Keep track of LED state on RX
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(buttonPin, INPUT_PULLUP); // Set the button pin as input with pull-up resistor
+
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi connected.");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+  bool currentButtonState = digitalRead(buttonPin);
+
+  // Detect button press to toggle LED on RX Arduino
+  if (currentButtonState == LOW && lastButtonState == HIGH) {
+    ledState = !ledState; // Toggle the desired LED state
+    sendRequest(ledState ? "H" : "L"); // Send request to RX Arduino
+    delay(200);  // Debounce delay
+  }
+
+  lastButtonState = currentButtonState;
+}
+
+void sendRequest(String command) {
+  WiFiClient client;
+  if (client.connect(receiverIP, receiverPort)) {
+    Serial.print("Sending request: ");
+    Serial.println(command == "H" ? "ON" : "OFF");
+    client.print("GET /" + command + " HTTP/1.1\r\n");
+    client.print("Host: " + String(receiverIP) + "\r\n");
+    client.print("Connection: close\r\n\r\n");
+    client.stop();
+  } else {
+    Serial.println("Connection to RX Arduino failed.");
+  }
+}
+<pre>
 
 <p class="margin">   </p>
 <div class="flexrow">
-  <a id="btn" href="wk9.zip" download>Download my files from this week!
+  <a id="btn" href="WK9Code.pdf.zip" download>Download my files from this week!
   </a>
 </div>
 <p class="margin">   </p>
